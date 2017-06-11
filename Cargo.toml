@@ -13,4 +13,4 @@ itertools = "0.6"
 
 
 [profile.release]
-lto = true
+#lto = true

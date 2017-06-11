@@ -346,7 +346,7 @@ pub fn checksum_ieee_sixteen_byte_iterator<R : Read>(mut reader: R, length: usiz
     let mut crc: u32 = !0;
     let mut length = length;
     for _ in 0..iters {
-        _ = reader.read(&mut current[..]).unwrap();
+        reader.read(&mut current[..]).unwrap();
     // I think it might be better to iterate over 4 bytes manually vs trying to use an iterator
         
     //for current in &bytes.into_iter().chunks(SLICE_SIZE) {

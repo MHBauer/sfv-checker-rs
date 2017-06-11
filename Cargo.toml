@@ -1,9 +1,16 @@
 [package]
-name = "zipper"
-version = "0.1.0"
+name = "sfv-checker-rs"
+version = "0.0.1"
 authors = ["Morgan Bauer <mbauer@us.ibm.com>"]
 
 [dependencies]
 walkdir = "1"
 crc = "1"
 clap = "2"
+log = "0.3"
+env_logger = "0.4"
+itertools = "0.6"
+
+
+[profile.release]
+lto = true

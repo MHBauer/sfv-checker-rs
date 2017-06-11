@@ -1,0 +1,9 @@
+[package]
+name = "zipper"
+version = "0.1.0"
+authors = ["Morgan Bauer <mbauer@us.ibm.com>"]
+
+[dependencies]
+walkdir = "1"
+crc = "1"
+clap = "2"

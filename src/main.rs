@@ -33,7 +33,20 @@ use clap::{Arg, App};
 #[derive(Debug)]
 struct PathHash {
     path: String,
-    hash: String,
+    hash: u32,
+}
+
+impl PathHash {
+    fn check(& self) -> bool {
+        info!("ph {:?}", self);
+        let path = Path::new(&self.path);
+        //let hs = self.hash.parse::<u32>().unwrap();
+        let hs = self.hash;
+        let hc = crc_file(path);
+        info!("hash {:#x} calculated", hc);
+        info!("hash {:#x} stored", hs);
+        hc == hs
+    }
 }
 
 fn main() {
@@ -111,33 +124,34 @@ fn main() {
                     // now parse the line and put it into a dictionary/map?
                     // struct is 'path-string' and 'hash value'
                     // don't check the path until later
+                    // TODO alternate strategy, matches "ends with 8 alphanums"
                     let mut t = line.rsplitn(2, " ");
                     let hash = t.next().expect("should have got a string");
                     let filename = t.next().expect("maybe not this one");
                     trace!("hash {:?}", hash);
                     trace!("filename {:?}", filename);
-                    let ph = PathHash {
-                        path: filename.to_string(),
-                        hash: hash.to_string(),
-                    };
-                    phs.push(ph);
-                    // TODO alternate strategy, matches "ends with 8 alphanums"
+
+                    match u32::from_str_radix(&hash, 16) {
+                        // if we get a bad looking hash skip it
+                        Err(_) => info!("couldn't parse the hash value {}, skipping file {}", hash, filename),
+                        Ok(hs) => {
+                            let ph = PathHash {
+                                path: filename.to_string(),
+                                hash: hs,
+                            };
+                            phs.push(ph);
+                        }
+                    }
                 }
             }
         }
     }
     
-    for ph in phs {
-        info!("ph {:?}", ph);
-        let path = Path::new(ph.path.as_str());
-
-        let hc = crc_file(path);
-        info!("hash {:#x} calculated", hc);
-        info!("hash   {} stored", ph.hash);
-
-        //      info!("hash {:?}", hash);
+            for ph in phs {
+                ph.check();
     }
         }
+        
     }
     // for each of the shits in the dictionary, calculate the hash and
     // check it against the other thing in the struct
@@ -163,7 +177,7 @@ fn main() {
 }
 
 fn crc_file(path: &Path) -> u32 {
-    info!("{} ", path.display());
+    trace!("{} ", path.display());
     let mut file = match File::open(path) {
         Err(why) => {
             panic!("couldn't open") // {}: {}", path, why.description()),
@@ -172,23 +186,9 @@ fn crc_file(path: &Path) -> u32 {
     };
 
     let metadata = file.metadata().unwrap();
-    //let mut reader = BufReader::new(file);
     let reader = BufReader::with_capacity(1024 * 1024, file);
-    //use crc_fast::checksum_ieee_sixteen_byte;
-    //let x2 = checksum_ieee_sixteen_byte(c.as_slice());
     use crc_fast::checksum_ieee_sixteen_byte_iterator;
-    //use std::fs;
-
-    let x3 = checksum_ieee_sixteen_byte_iterator(reader,
-                                                 metadata.len() as usize);
-    info!("hash {:#x}", x3);
-
-    let finalhash = x3;
-
-    if finalhash != x3 {
-        panic!("crc does not match");
-    }
-    // TODO log this instead of printing it
-    trace!("{} hash {:#x}", path.display(), finalhash);
-    finalhash
+    let hc = checksum_ieee_sixteen_byte_iterator(reader, metadata.len() as usize);
+    trace!("{} hash {:#x}", path.display(), hc);
+    hc
 }

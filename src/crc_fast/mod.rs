@@ -79,7 +79,8 @@ pub fn checksum_ieee_four_byte(bytes: &[u8]) -> u32 {
         // handle any bytes less than the chunksize
         if length < 4 {
             for &byte in current {
-                crc = table[0][((crc ^ byte as u32) & 0xFF) as usize] ^ (crc >> 8);
+                crc = table[0][((crc ^ byte as u32) & 0xFF) as usize] ^
+                      (crc >> 8);
                 length -= 1;
             }
             break;
@@ -134,7 +135,8 @@ pub fn checksum_ieee_four_byte(bytes: &[u8]) -> u32 {
 pub fn checksum_ieee_sixteen_byte(bytes: &[u8]) -> u32 {
     const TABLE_SIZE: usize = 0x100;
     const SLICE_SIZE: usize = 16;
-    let mut table: [[u32; TABLE_SIZE]; SLICE_SIZE] = [[0; TABLE_SIZE]; SLICE_SIZE];
+    let mut table: [[u32; TABLE_SIZE]; SLICE_SIZE] = [[0; TABLE_SIZE];
+                                                      SLICE_SIZE];
 
     // build the table
     for i in 0..TABLE_SIZE as u32 {
@@ -211,7 +213,8 @@ pub fn checksum_ieee_sixteen_byte(bytes: &[u8]) -> u32 {
         // handle any bytes less than the chunksize
         if length < SLICE_SIZE {
             for &byte in current {
-                crc = table[0][((crc ^ byte as u32) & 0xFF) as usize] ^ (crc >> 8);
+                crc = table[0][((crc ^ byte as u32) & 0xFF) as usize] ^
+                      (crc >> 8);
                 length -= 1;
             }
             break;
@@ -288,8 +291,9 @@ pub fn checksum_ieee_sixteen_byte(bytes: &[u8]) -> u32 {
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b1, xb1, tl1);
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b2, xb2, tl2);
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b3, xb3, tl3);
-        crc = tl0 ^ tl1 ^ tl2 ^ tl3 ^ tl4 ^ tl5 ^ tl6 ^ tl7 ^ tl8 ^ tl9 ^ tl10 ^ tl11 ^
-              tl12 ^ tl13 ^ tl14 ^ tl15;
+        crc = tl0 ^ tl1 ^ tl2 ^ tl3 ^ tl4 ^ tl5 ^ tl6 ^ tl7 ^ tl8 ^
+              tl9 ^ tl10 ^ tl11 ^ tl12 ^
+              tl13 ^ tl14 ^ tl15;
 
         // update how many bytes there are left to crc
         length -= SLICE_SIZE;
@@ -311,10 +315,13 @@ pub fn checksum_ieee_sixteen_byte(bytes: &[u8]) -> u32 {
 use std::io::Read;
 //use itertools::Itertools;
 
-pub fn checksum_ieee_sixteen_byte_iterator<R : Read>(mut reader: R, length: usize) -> u32 {
+pub fn checksum_ieee_sixteen_byte_iterator<R: Read>(mut reader: R,
+                                                    length: usize)
+                                                    -> u32 {
     const TABLE_SIZE: usize = 0x100;
     const SLICE_SIZE: usize = 16;
-    let mut table: [[u32; TABLE_SIZE]; SLICE_SIZE] = [[0; TABLE_SIZE]; SLICE_SIZE];
+    let mut table: [[u32; TABLE_SIZE]; SLICE_SIZE] = [[0; TABLE_SIZE];
+                                                      SLICE_SIZE];
 
     // build the table
     for i in 0..TABLE_SIZE as u32 {
@@ -340,16 +347,16 @@ pub fn checksum_ieee_sixteen_byte_iterator<R : Read>(mut reader: R, length: usiz
             table[slice][i] = x ^ y;
         }
     } // tables set up
-    
+
     let iters = length / 16;
     let mut current = vec![0; 16];
     let mut crc: u32 = !0;
     let mut length = length;
     for _ in 0..iters {
         reader.read(&mut current[..]).unwrap();
-    // I think it might be better to iterate over 4 bytes manually vs trying to use an iterator
-        
-    //for current in &bytes.into_iter().chunks(SLICE_SIZE) {
+        // I think it might be better to iterate over 4 bytes manually vs trying to use an iterator
+
+        //for current in &bytes.into_iter().chunks(SLICE_SIZE) {
         // handle any bytes less than the chunksize
         // reconstruct a u32 from bytes
         let b0: u32 = current[0] as u32;
@@ -423,8 +430,9 @@ pub fn checksum_ieee_sixteen_byte_iterator<R : Read>(mut reader: R, length: usiz
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b1, xb1, tl1);
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b2, xb2, tl2);
         // println!("b {:#010x}, xb {:#x}, tlx {:#010x}", b3, xb3, tl3);
-        crc = tl0 ^ tl1 ^ tl2 ^ tl3 ^ tl4 ^ tl5 ^ tl6 ^ tl7 ^ tl8 ^ tl9 ^ tl10 ^ tl11 ^
-              tl12 ^ tl13 ^ tl14 ^ tl15;
+        crc = tl0 ^ tl1 ^ tl2 ^ tl3 ^ tl4 ^ tl5 ^ tl6 ^ tl7 ^ tl8 ^
+              tl9 ^ tl10 ^ tl11 ^ tl12 ^
+              tl13 ^ tl14 ^ tl15;
 
         // update how many bytes there are left to crc
         length -= SLICE_SIZE;

@@ -1,34 +1,29 @@
-
-#[macro_use]
-extern crate itertools;
+extern crate crc32fast;
 
 extern crate walkdir;
-extern crate crc;
 
 #[macro_use]
 extern crate clap;
-
 
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 
-mod crc_fast;
-
-use std::env;
 use env_logger::{LogBuilder, LogTarget};
 use log::LogLevelFilter;
+use std::env;
+
+use std::time::Instant;
 
 use std::error::Error;
-use std::path::Path;
 use std::fs::File;
-//use std::io::Read;
-use std::io::BufReader;
 use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
 
 use std::fs;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 #[derive(Debug)]
 struct PathHash {
@@ -37,12 +32,33 @@ struct PathHash {
 }
 
 impl PathHash {
-    fn check(&self, enable_timing: bool) -> bool {
+    fn check(&self, _enable_timing: bool) -> bool {
         info!("ph {:?}", self);
         let path = Path::new(&self.path);
-        //let hs = self.hash.parse::<u32>().unwrap();
+
+        let metadata = fs::metadata(&path).unwrap();
+        let bytes = metadata.len();
         let hs = self.hash;
+        extern crate time;
+        let start = time::precise_time_ns();
+        let starti = Instant::now();
         let hc = crc_file(path);
+        let end = time::precise_time_ns();
+        let duration = (end - start) as f64;
+        let duration = duration / 1_000_000_000.0;
+        let bpns = bytes as f64 / duration;
+        let bps = bpns;
+
+        let endi = starti.elapsed();
+        let time: f64 = endi.as_secs() as f64
+            + endi.subsec_nanos() as f64 / 1_000_000_000.0;
+        eprintln!(
+            "{} bytes in {} seconds at {} bytes/sec",
+            bytes, duration, bps
+        );
+        eprintln!("hashing took {}", time);
+        eprintln!("mb/s is {}", (bytes as f64 / (1024.0 * 1024.0)) / time);
+
         info!("hash {:#x} calculated", hc);
         info!("hash {:#x} stored", hs);
         hc == hs
@@ -50,18 +66,28 @@ impl PathHash {
 }
 
 fn main() {
-
     let matches = App::new("")
         .version(crate_version!())
         .author("Morgan Harold Bauer <bauer.morgan@gmail.com>")
         .about("checks sfv files")
-        .arg(Arg::with_name("INPUT")
-             .help("Sets the input file to use")
-             .required(true).index(1))
-        .arg(Arg::with_name("v").short("v").multiple(true)
-             .help("Sets the level of verbosity"))
-        .arg(Arg::with_name("timing").short("t").default_value("true")
-             .help("whether to calculate and print timing and throughput"))
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Sets the input file to use")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::with_name("v")
+                .short("v")
+                .multiple(true)
+                .help("Sets the level of verbosity"),
+        )
+        .arg(
+            Arg::with_name("timing")
+                .short("t")
+                .default_value("true")
+                .help("whether to calculate and print timing and throughput"),
+        )
         .get_matches();
 
     let mut builder = LogBuilder::new();
@@ -105,7 +131,6 @@ fn main() {
     // individual file to hash.
 
     if !metadata.is_dir() {
-
         let file = match File::open(&path) {
             // The `description` method of `io::Error` returns a
             // string that describes the error
@@ -115,20 +140,21 @@ fn main() {
             Ok(file) => file,
         };
 
+        // find the base of the file and
+        // let _base = Path::new(path).canonicalize().unwrap().parent().unwrap();
+
         // check for sfv ending.
         // TODO: add flag to force hashing of sfv files
-
         if input.ends_with(".sfv") {
-
             let mut phs = Vec::new();
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 match line {
-                    Err(why) => {
-                        panic!("couldn't read {}: {}",
-                               display,
-                               why.description())
-                    }
+                    Err(why) => panic!(
+                        "couldn't read {}: {}",
+                        display,
+                        why.description()
+                    ),
                     Ok(line) => {
                         let line = line.trim();
                         trace!("{} contains \n{:?}", display, line);
@@ -150,7 +176,7 @@ fn main() {
                                 t.next().expect("maybe not this one");
                             trace!("hash {:?}", hash);
                             trace!("filename {:?}", filename);
-
+                            //let filename =
                             match u32::from_str_radix(&hash, 16) {
                                 // if we get a bad looking hash skip it
                                 Err(_) => {
@@ -174,24 +200,32 @@ fn main() {
             for ph in phs {
                 if ph.check(enable_timing) {
                     println!("good hash for {}", ph.path)
-                }
-                else {
+                } else {
                     println!("bad hash for {}", ph.path)
                 }
             }
+        } else
+        // it's not an sfv file, but an individual file and we should hash it and go away.
+        {
+            // we have file
+            let hash = crc_file(path);
+            println!("{} hash {:#x}", path.display(), hash);
         }
     } else {
         // hash everything in the directory
+        // with a --check flag, look for sfv in each directory, and run the normal checking flow.
+        // with no flag, hash all the files in the directory
         use walkdir::WalkDir;
-        for entry in WalkDir::new(".") {
+        for entry in WalkDir::new(path) {
             match entry {
                 Ok(entry) => {
                     if entry.metadata().unwrap().is_dir() {
                         info!("{}", entry.path().display());
                     } else {
-                        //println!("{}", entry.path().display());
-                        //let path = entry.path();
-                        //crc_file(path);
+                        let path = entry.path();
+                        let hash = crc_file(path);
+                        //let metadata = path.metadata().unwrap();
+                        println!("{} {:08X}", path.display(), hash);
                     }
                 }
                 Err(err) => println!("Error: {}", err),
@@ -200,20 +234,43 @@ fn main() {
     }
 }
 
+//extern crate indicatif;
+
 fn crc_file(path: &Path) -> u32 {
     trace!("{} ", path.display());
-    let mut file = match File::open(path) {
+    let file = match File::open(path) {
         Err(why) => {
-            panic!("couldn't open") // {}: {}", path, why.description()),
+            panic!("couldn't open {}: {}", path.display(), why.description());
         }
         Ok(file) => file,
     };
 
-    let metadata = file.metadata().unwrap();
-    let reader = BufReader::with_capacity(1024 * 1024, file);
-    use crc_fast::checksum_ieee_sixteen_byte_iterator;
-    let hc = checksum_ieee_sixteen_byte_iterator(reader,
-                                                 metadata.len() as usize);
-    trace!("{} hash {:#x}", path.display(), hc);
-    hc
+    use crc32fast::Hasher;
+    use std::io::Read;
+    let mut hasher = Hasher::new();
+
+    //let metadata = file.metadata().unwrap();
+    let mut reader = BufReader::with_capacity(1024 * 1024, file);
+
+    const ONE_MEG: usize = 1024 * 1024;
+
+    let mut current = vec![0; ONE_MEG];
+
+    let mut num_bytes_read = ONE_MEG;
+    // progress bar
+    //use indicatif::ProgressBar;
+
+    //  let bar = ProgressBar::new(metadata.len());
+
+    while num_bytes_read == ONE_MEG {
+        num_bytes_read = reader.read(&mut current[..]).unwrap();
+        trace!("{}", num_bytes_read);
+        hasher.update(&current[..num_bytes_read]);
+        //    bar.inc(num_bytes_read as u64);
+    }
+    let checksum = hasher.finalize();
+    //bar.finish_and_clear();
+
+    trace!("{} hash {:#x}", path.display(), checksum);
+    checksum
 }

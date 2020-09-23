@@ -1,5 +1,5 @@
 extern crate crc32fast;
-
+extern crate sha2;
 extern crate walkdir;
 
 #[macro_use]
@@ -42,7 +42,7 @@ impl PathHash {
         extern crate time;
         let start = time::precise_time_ns();
         let starti = Instant::now();
-        let hc = crc_file(path);
+        let hc = hash_file(path, "sfv");
         let end = time::precise_time_ns();
         let duration = (end - start) as f64;
         let duration = duration / 1_000_000_000.0;
@@ -83,6 +83,13 @@ fn main() {
                 .help("Sets the level of verbosity"),
         )
         .arg(
+            Arg::with_name("alg")
+                .long("alg")
+                .default_value("sfv")
+                .takes_value(true)
+                .help("Sets the algorithm to use for hashing"),
+        )
+        .arg(
             Arg::with_name("timing")
                 .short("t")
                 .default_value("true")
@@ -118,6 +125,9 @@ fn main() {
 
     info!("starting up");
     let enable_timing = value_t!(matches, "timing", bool).unwrap_or(false);
+
+    let algorithm = matches.value_of("alg").unwrap();
+    info!("using algorithm {}", algorithm);
 
     let input = matches.value_of("INPUT").unwrap();
     //read the file <INPUT> and then hash all the files described
@@ -208,7 +218,7 @@ fn main() {
         // it's not an sfv file, but an individual file and we should hash it and go away.
         {
             // we have file
-            let hash = crc_file(path);
+            let hash = hash_file(path, algorithm);
             println!("{} hash {:#x}", path.display(), hash);
         }
     } else {
@@ -223,7 +233,7 @@ fn main() {
                         info!("{}", entry.path().display());
                     } else {
                         let path = entry.path();
-                        let hash = crc_file(path);
+                        let hash = hash_file(path, algorithm);
                         //let metadata = path.metadata().unwrap();
                         println!("{} {:08X}", path.display(), hash);
                     }
@@ -236,7 +246,7 @@ fn main() {
 
 //extern crate indicatif;
 
-fn crc_file(path: &Path) -> u32 {
+fn hash_file(path: &Path, _hasher: &str) -> u32 {
     trace!("{} ", path.display());
     let file = match File::open(path) {
         Err(why) => {
@@ -244,10 +254,6 @@ fn crc_file(path: &Path) -> u32 {
         }
         Ok(file) => file,
     };
-
-    use crc32fast::Hasher;
-    use std::io::Read;
-    let mut hasher = Hasher::new();
 
     //let metadata = file.metadata().unwrap();
     let mut reader = BufReader::with_capacity(1024 * 1024, file);
@@ -262,15 +268,41 @@ fn crc_file(path: &Path) -> u32 {
 
     //  let bar = ProgressBar::new(metadata.len());
 
-    while num_bytes_read == ONE_MEG {
-        num_bytes_read = reader.read(&mut current[..]).unwrap();
-        trace!("{}", num_bytes_read);
-        hasher.update(&current[..num_bytes_read]);
-        //    bar.inc(num_bytes_read as u64);
+    let mut output = 0;
+    use std::io::Read;
+
+    if _hasher == "sfv" {
+        use crc32fast::Hasher;
+        let mut hasher = Hasher::new();
+
+        while num_bytes_read == ONE_MEG {
+            num_bytes_read = reader.read(&mut current[..]).unwrap();
+            trace!("{}", num_bytes_read);
+            hasher.update(&current[..num_bytes_read]);
+            //    bar.inc(num_bytes_read as u64);
+        }
+        let checksum = hasher.finalize();
+        output = checksum;
     }
-    let checksum = hasher.finalize();
+
+    if _hasher == "sha256" {
+        use sha2::{Digest, Sha256, Sha512};
+        let mut hasher = Sha256::new();
+
+        while num_bytes_read == ONE_MEG {
+            num_bytes_read = reader.read(&mut current[..]).unwrap();
+            trace!("{}", num_bytes_read);
+            hasher.update(&current[..num_bytes_read]);
+            //    bar.inc(num_bytes_read as u64);
+        }
+        let checksum = hasher.finalize();
+        let (int_bytes, _) = checksum.split_at(std::mem::size_of::<u32>());
+        use std::convert::TryInto;
+        output = u32::from_ne_bytes(int_bytes.try_into().unwrap());
+    }
+
     //bar.finish_and_clear();
 
-    trace!("{} hash {:#x}", path.display(), checksum);
-    checksum
+    trace!("{} hash {:#x}", path.display(), output);
+    output
 }

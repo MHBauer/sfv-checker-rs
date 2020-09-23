@@ -6,6 +6,7 @@ authors = ["Morgan Bauer <mbauer@us.ibm.com>"]
 [dependencies]
 walkdir = "1"
 crc32fast = "1"
+sha2 = "0.9"
 clap = "2"
 log = "0.3"
 env_logger = "0.4"
@@ -14,4 +15,4 @@ indicatif = "0.11"
 pbr = "1"
 
 [profile.release]
-lto = true
+#lto = true

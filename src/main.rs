@@ -223,7 +223,7 @@ fn main() {
         {
             // we have file
             let hash = hash_file(path, algorithm);
-            println!("{} hash {:#x}", path.display(), hash);
+            println!("{} {:08X}", path.display(), hash);
         }
     } else {
         // hash everything in the directory

@@ -16,7 +16,6 @@ use std::env;
 
 use std::time::Instant;
 
-use std::error::Error;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -144,10 +143,8 @@ fn main() {
 
     if !metadata.is_dir() {
         let file = match File::open(&path) {
-            // The `description` method of `io::Error` returns a
-            // string that describes the error
             Err(why) => {
-                panic!("couldn't open {}: {}", display, why.description())
+                panic!("couldn't open {}: {}", display, why)
             }
             Ok(file) => file,
         };
@@ -165,8 +162,7 @@ fn main() {
                     Err(why) => {
                         panic!(
                             "couldn't read {}: {}",
-                            display,
-                            why.description()
+                            display, why
                         )
                     }
                     Ok(line) => {
@@ -238,7 +234,6 @@ fn main() {
                     } else {
                         let path = entry.path();
                         let hash = hash_file(path, algorithm);
-                        let metadata = path.metadata().unwrap();
                         println!("{} {:08X}", path.display(), hash);
                     }
                 }
@@ -254,7 +249,7 @@ fn hash_file(path: &Path, _hasher: &str) -> u32 {
     trace!("{} ", path.display());
     let file = match File::open(path) {
         Err(why) => {
-            panic!("couldn't open {}: {}", path.display(), why.description());
+            panic!("couldn't open {}: {}", path.display(), why);
         }
         Ok(file) => file,
     };

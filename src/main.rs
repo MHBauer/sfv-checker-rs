@@ -1,5 +1,6 @@
 extern crate crc32fast;
 extern crate sha2;
+
 extern crate walkdir;
 
 #[macro_use]
@@ -20,6 +21,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
+mod crc_fast;
 
 use std::fs;
 
@@ -68,7 +70,7 @@ impl PathHash {
 fn main() {
     let matches = App::new("")
         .version(crate_version!())
-        .author("Morgan Harold Bauer <bauer.morgan@gmail.com>")
+        .author("Morgan Harold Bauer <me@mhbauer.com>")
         .about("checks sfv files")
         .arg(
             Arg::with_name("INPUT")
@@ -160,11 +162,13 @@ fn main() {
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 match line {
-                    Err(why) => panic!(
-                        "couldn't read {}: {}",
-                        display,
-                        why.description()
-                    ),
+                    Err(why) => {
+                        panic!(
+                            "couldn't read {}: {}",
+                            display,
+                            why.description()
+                        )
+                    }
                     Ok(line) => {
                         let line = line.trim();
                         trace!("{} contains \n{:?}", display, line);
@@ -234,7 +238,7 @@ fn main() {
                     } else {
                         let path = entry.path();
                         let hash = hash_file(path, algorithm);
-                        //let metadata = path.metadata().unwrap();
+                        let metadata = path.metadata().unwrap();
                         println!("{} {:08X}", path.display(), hash);
                     }
                 }
